@@ -43,6 +43,43 @@ contract Exchange is ERC20 {
             // by the user in the current `addLiquidity` call
             // `liquidity` tokens that need to be minted to the user on `addLiquidity` call should always be proportional
             // to the Eth specified by the user
+            liquidity = ethBalance;
+            _mint(msg.sender, liquidity);
+            // _mint is ERC20.sol smart contract function to mint ERC20 tokens
+        } else {
+            /*
+            If the reserve is not empty, intake any user supplied value for
+            `Ether` and determine according to the ratio how many `Crypto Dev` tokens
+            need to be supplied to prevent any large price impacts because of the additional
+            liquidity
+        */
+            // EthReserve should be the current ethBalance subtracted by the value of ether sent by the user
+            // in the current `addLiquidity` call
+            uint256 ethReserve = ethBalance - msg.value;
+            // Ratio should always be maintained so that there are no major price impacts when adding liquidity
+            // Ratio here is -> (cryptoDevTokenAmount user can add/cryptoDevTokenReserve in the contract) = (Eth Sent by the user/Eth Reserve in the contract);
+            // So doing some maths, (cryptoDevTokenAmount user can add) = (Eth Sent by the user * cryptoDevTokenReserve /Eth Reserve);
+            uint256 cryptoDevTokenAmount = (msg.value * cryptoDevTokenReserve) /
+                (ethReserve);
+            require(
+                _amount >= cryptoDevTokenAmount,
+                "Amount of tokens sent is less than the minimum tokens required"
+            );
+            // transfer only (cryptoDevTokenAmount user can add) amount of `Crypto Dev tokens` from users account
+            // to the contract
+            cryptoDevToken.transferFrom(
+                msg.sender,
+                address(this),
+                cryptoDevTokenAmount
+            );
+            // The amount of LP tokens that would be sent to the user should be propotional to the liquidity of
+            // ether added by the user
+            // Ratio here to be maintained is ->
+            // (LP tokens to be sent to the user (liquidity)/ totalSupply of LP tokens in contract) = (Eth sent by the user)/(Eth reserve in the contract)
+            // by some maths -> liquidity =  (totalSupply of LP tokens in contract * (Eth sent by the user))/(Eth reserve in the contract)
+            liquidity = (totalSupply() * msg.value) / ethReserve;
+            _mint(msg.sender, liquidity);
         }
+        return liquidity;
     }
 }
